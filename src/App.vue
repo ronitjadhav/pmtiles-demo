@@ -1,194 +1,167 @@
 <template>
-  <div class="app-container">
-    <div class="control-panel">
-      <h1>PMTiles Viewer</h1>
-      
-      <div class="input-group">
-        <input 
-          type="text" 
-          v-model="pmtilesUrl" 
-          placeholder="Enter PMTiles URL or drag & drop a file" 
-          @keyup.enter="loadPmTilesFromUrl"
+  <div class="app-container" :data-mobile-panel="activeMobilePanel">
+    <!-- Left sidebar for controls -->
+    <ControlPanel
+      :originalPmTiles="originalPmTiles"
+      :currentPmTiles="currentPmTiles"
+      :statusMessage="statusMessage"
+      :statusType="statusType"
+      @load-pmtiles="loadPmTiles"
+      @set-status="setStatus"
+      @reset-to-original="resetToOriginal"
+    />
+    
+    <!-- Main content area -->
+    <div class="main-content">
+      <MapDisplay
+        :pmtilesUrl="currentPmTilesUrl"
+        :stylePreset="currentStylePreset"
+        :customStyle="customStyle"
+        @map-error="onMapError"
+        @map-success="onMapSuccess"
+      />
+    </div>
+    
+    <!-- Right sidebar for style controls -->
+    <div class="right-sidebar">
+      <div class="sidebar-content">
+        <StyleControl
+          :currentStylePreset="currentStylePreset"
+          @update-style="updateStyle"
         />
-        <button @click="loadPmTilesFromUrl" class="btn">Load</button>
-      </div>
-      
-      <div class="buttons-group">
-        <button @click="resetToOriginal" class="btn reset-btn">
-          Reset to Original
-        </button>
-      </div>
-      
-      <div class="status-box" :class="statusType">
-        {{ statusMessage }}
-      </div>
-      
-      <div class="drag-drop-area" 
-        @dragover.prevent="dragOver" 
-        @dragleave.prevent="dragLeave"
-        @drop.prevent="handleDrop"
-        :class="{ active: isDragging }">
-        <div class="drag-drop-text">
-          <span v-if="!isDragging">Drag & drop PMTiles file here</span>
-          <span v-else>Drop file to load</span>
-        </div>
-      </div>
-      
-      <div class="info-box">
-        <h3>Current PMTiles:</h3>
-        <p>{{ currentPmTiles }}</p>
       </div>
     </div>
     
-    <div id="map" class="map" ref="mapContainer"></div>
+    <!-- Mobile menu bar -->
+    <div class="mobile-menu-bar">
+      <button @click="setActiveMobilePanel('controls')" :class="{ active: activeMobilePanel === 'controls' }">
+        🛠️ Controls
+      </button>
+      <button @click="setActiveMobilePanel('map')" :class="{ active: activeMobilePanel === 'map' }">
+        🗺️ Map
+      </button>
+      <button @click="setActiveMobilePanel('styles')" :class="{ active: activeMobilePanel === 'styles' }">
+        🎨 Styles
+      </button>
+    </div>
   </div>
 </template>
 
 <script>
-import { ref, onMounted, reactive } from 'vue'
-import Map from 'ol/Map'
-import View from 'ol/View'
-import VectorTileLayer from 'ol/layer/VectorTile'
-import MVT from 'ol/format/MVT'
-import { PMTilesVectorSource } from 'ol-pmtiles'
-import { fromLonLat } from 'ol/proj'
+import { ref, onMounted } from 'vue';
+import ControlPanel from './components/ControlPanel.vue';
+import StyleControl from './components/StyleControl.vue';
+import MapDisplay from './components/MapDisplay.vue';
 
 export default {
+  name: 'App',
+  components: {
+    ControlPanel,
+    StyleControl,
+    MapDisplay
+  },
+  
   setup() {
-    // Reactive state
-    const mapContainer = ref(null)
-    const pmtilesUrl = ref('')
-    const isDragging = ref(false)
-    const statusMessage = ref('Ready to load PMTiles')
-    const statusType = ref('info')
-    const currentPmTiles = ref('berlin_area.pmtiles')
-    const originalPmTiles = 'berlin_area.pmtiles'
+    // Constants
+    const originalPmTiles = 'public/berlin_area.pmtiles';
     
-    // Store the map instance
-    let map = null
-    let currentLayer = null
+    // Reactive state
+    const currentPmTiles = ref(originalPmTiles);
+    const currentPmTilesUrl = ref(originalPmTiles);
+    const statusMessage = ref('Ready to load PMTiles');
+    const statusType = ref('info');
+    const currentStylePreset = ref('default');
+    const customStyle = ref(null);
+    
+    // Layout state
+    const activeMobilePanel = ref('map');
 
-    // Initialize map
-    const initMap = () => {
-      loadPmTiles(originalPmTiles)
-    }
+    // Set active mobile panel
+    const setActiveMobilePanel = (panel) => {
+      activeMobilePanel.value = panel;
+    };
 
-    // Load PMTiles from URL
-    const loadPmTilesFromUrl = () => {
-      if (!pmtilesUrl.value) {
-        setStatus('Please enter a PMTiles URL', 'error')
-        return
-      }
-      
-      loadPmTiles(pmtilesUrl.value)
-    }
-
-    // Load PMTiles function (reusable)
+    // Load PMTiles function
     const loadPmTiles = (url) => {
       try {
-        setStatus('Loading PMTiles...', 'loading')
-        
-        // Create new source and layer
-        const source = new PMTilesVectorSource({
-          url: url,
-          format: new MVT()
-        })
-        
-        const newLayer = new VectorTileLayer({
-          source: source
-        })
-        
-        // If map already exists, update it
-        if (map) {
-          // Remove previous layer if it exists
-          if (currentLayer) {
-            map.removeLayer(currentLayer)
-          }
-          
-          // Add new layer
-          map.addLayer(newLayer)
-          currentLayer = newLayer
-          
-          // Set view to a reasonable default (no auto-fitting)
-        } 
-        // First time map initialization
-        else {
-          currentLayer = newLayer
-          map = new Map({
-            target: mapContainer.value,
-            layers: [newLayer],
-            view: new View({
-              center: fromLonLat([13.404954, 52.520008]), // Berlin coordinates as default
-              zoom: 10
-            })
-          })
-          
-          // Keep the default view (no auto-fitting)
+        setStatus('Loading PMTiles...', 'loading');
+        currentPmTiles.value = url;
+        currentPmTilesUrl.value = url;
+        // On mobile, switch to map view after loading a new PMTile
+        if (window.innerWidth <= 768) {
+          setActiveMobilePanel('map');
         }
-        
-        // Update current PMTiles info
-        currentPmTiles.value = url
-        pmtilesUrl.value = '' // Clear input field
-        setStatus('PMTiles loaded successfully!', 'success')
       } catch (error) {
-        console.error('Error loading PMTiles:', error)
-        setStatus('Error loading PMTiles: ' + error.message, 'error')
+        console.error('Error loading PMTiles:', error);
+        setStatus('Error loading PMTiles: ' + error.message, 'error');
       }
-    }
+    };
 
     // Reset to original
     const resetToOriginal = () => {
-      loadPmTiles(originalPmTiles)
-    }
-
-    // Drag events
-    const dragOver = (event) => {
-      isDragging.value = true
-    }
-    
-    const dragLeave = (event) => {
-      isDragging.value = false
-    }
-    
-    const handleDrop = (event) => {
-      isDragging.value = false
-      const files = event.dataTransfer.files
-      
-      if (files.length) {
-        const file = files[0]
-        if (file.name.endsWith('.pmtiles')) {
-          const url = URL.createObjectURL(file)
-          loadPmTiles(url)
-        } else {
-          setStatus('Please drop a valid .pmtiles file', 'error')
-        }
-      }
-    }
+      loadPmTiles(originalPmTiles);
+    };
     
     // Status updater
     const setStatus = (message, type = 'info') => {
-      statusMessage.value = message
-      statusType.value = type
-    }
+      statusMessage.value = message;
+      statusType.value = type;
+    };
 
-    // Initialize map on component mount
+    // Style updater
+    const updateStyle = (presetName, styleData) => {
+      console.log('Updating style:', presetName, styleData);
+      currentStylePreset.value = presetName;
+      
+      // Deep clone the style data to ensure reactivity
+      if (presetName === 'custom' && styleData) {
+        customStyle.value = JSON.parse(JSON.stringify(styleData));
+      } else {
+        customStyle.value = null;
+      }
+      
+      // On mobile, switch to map view after applying a style
+      if (window.innerWidth <= 768) {
+        setActiveMobilePanel('map');
+      }
+    };
+
+    // Map event handlers
+    const onMapError = (message) => {
+      setStatus(message, 'error');
+    };
+
+    const onMapSuccess = (message) => {
+      setStatus(message, 'success');
+    };
+
+    // Initialize on component mount
     onMounted(() => {
-      initMap()
-    })
+      loadPmTiles(originalPmTiles);
+      
+      // Set initial mobile view based on screen size
+      if (window.innerWidth <= 768) {
+        activeMobilePanel.value = 'map';
+      }
+    });
 
     return {
-      mapContainer,
-      pmtilesUrl,
-      isDragging,
+      originalPmTiles,
+      currentPmTiles,
+      currentPmTilesUrl,
       statusMessage,
       statusType,
-      currentPmTiles,
-      loadPmTilesFromUrl,
+      currentStylePreset,
+      customStyle,
+      activeMobilePanel,
+      loadPmTiles,
       resetToOriginal,
-      dragOver,
-      dragLeave,
-      handleDrop
-    }
+      setStatus,
+      updateStyle,
+      onMapError,
+      onMapSuccess,
+      setActiveMobilePanel
+    };
   }
 }
 </script>
@@ -198,145 +171,229 @@ export default {
   margin: 0;
   padding: 0;
   box-sizing: border-box;
-  font-family: 'Arial', sans-serif;
+  font-family: 'Inter', 'SF Pro Display', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen-Sans, Ubuntu, Cantarell, 'Helvetica Neue', sans-serif;
+}
+
+:root {
+  --primary-color: #3498db;
+  --secondary-color: #2ecc71;
+  --danger-color: #e74c3c;
+  --text-color: #2c3e50;
+  --light-bg: #f5f7fa;
+  --sidebar-width: 350px;
+  --right-sidebar-width: 340px;
+  --border-radius: 12px;
+  --header-height: 60px;
+  --footer-height: 50px;
+  --mobile-menu-height: 60px;
+}
+
+body {
+  background-color: var(--light-bg);
+  color: var(--text-color);
+  font-size: 16px;
+  line-height: 1.6;
 }
 
 .app-container {
   display: flex;
   height: 100vh;
   width: 100vw;
+  overflow: hidden;
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: #f0f4f8;
 }
 
-.control-panel {
-  width: 300px;
-  height: 100vh;
-  background-color: #f8f9fa;
-  padding: 20px;
-  box-shadow: 2px 0 10px rgba(0, 0, 0, 0.1);
+.main-content {
+  flex: 1;
+  position: relative;
+  height: 100%;
+  transition: margin 0.3s ease;
+}
+
+/* Right sidebar */
+.right-sidebar {
+  width: var(--right-sidebar-width);
+  height: 100%;
+  background-color: #ffffff;
+  box-shadow: -2px 0 10px rgba(0, 0, 0, 0.1);
+  position: relative;
+  z-index: 900;
   display: flex;
   flex-direction: column;
-  z-index: 1000;
 }
 
-.control-panel h1 {
-  font-size: 1.5rem;
-  margin-bottom: 20px;
-  color: #343a40;
-}
-
-.input-group {
-  display: flex;
-  margin-bottom: 15px;
-}
-
-.input-group input {
-  flex-grow: 1;
-  padding: 10px;
-  border: 1px solid #ced4da;
-  border-radius: 4px 0 0 4px;
-  font-size: 14px;
-}
-
-.btn {
-  padding: 10px 15px;
-  background-color: #007bff;
-  color: white;
-  border: none;
-  cursor: pointer;
-  border-radius: 0 4px 4px 0;
-  transition: background-color 0.3s;
-}
-
-.buttons-group {
-  display: flex;
-  margin-bottom: 15px;
-}
-
-.reset-btn {
+.sidebar-content {
+  height: 100%;
+  overflow-y: auto;
+  overflow-x: hidden;
   width: 100%;
-  background-color: #6c757d;
-  border-radius: 4px;
+  box-sizing: border-box;
 }
 
-.btn:hover {
-  background-color: #0069d9;
+/* Mobile menu */
+.mobile-menu-bar {
+  display: none;
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: var(--mobile-menu-height);
+  background-color: #ffffff;
+  box-shadow: 0 -4px 15px rgba(0, 0, 0, 0.08);
+  z-index: 1000;
+  flex-direction: row;
+  justify-content: space-around;
+  align-items: center;
+  padding: 0;
+  border-top: 1px solid rgba(0, 0, 0, 0.05);
 }
 
-.reset-btn:hover {
-  background-color: #5a6268;
-}
-
-.status-box {
-  padding: 10px;
-  border-radius: 4px;
-  font-size: 14px;
-  margin-bottom: 15px;
-  text-align: center;
-}
-
-.status-box.info {
-  background-color: #d1ecf1;
-  color: #0c5460;
-}
-
-.status-box.error {
-  background-color: #f8d7da;
-  color: #721c24;
-}
-
-.status-box.success {
-  background-color: #d4edda;
-  color: #155724;
-}
-
-.status-box.loading {
-  background-color: #fff3cd;
-  color: #856404;
-}
-
-.drag-drop-area {
-  flex-grow: 1;
-  border: 2px dashed #ced4da;
-  border-radius: 4px;
+.mobile-menu-bar button {
+  flex: 1;
+  height: 100%;
+  background-color: transparent;
+  border: none;
+  color: #95a5a6;
+  font-size: 15px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  padding: 8px 5px;
   display: flex;
+  flex-direction: column;
   align-items: center;
   justify-content: center;
-  margin-bottom: 15px;
-  transition: all 0.3s;
-  min-height: 100px;
+  gap: 5px;
+  position: relative;
+  overflow: hidden;
 }
 
-.drag-drop-area.active {
-  background-color: rgba(0, 123, 255, 0.1);
-  border-color: #007bff;
+.mobile-menu-bar button::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 3px;
+  background: linear-gradient(90deg, #3498db, #2980b9);
+  opacity: 0;
+  transition: opacity 0.3s ease;
 }
 
-.drag-drop-text {
-  text-align: center;
-  color: #6c757d;
+.mobile-menu-bar button.active {
+  color: var(--primary-color);
 }
 
-.info-box {
-  padding: 10px;
-  background-color: #e9ecef;
-  border-radius: 4px;
-  margin-bottom: 15px;
+.mobile-menu-bar button.active::before {
+  opacity: 1;
 }
 
-.info-box h3 {
-  font-size: 14px;
-  margin-bottom: 5px;
-  color: #495057;
+button:focus, input:focus {
+  outline: none;
 }
 
-.info-box p {
-  font-size: 12px;
-  word-break: break-all;
-  color: #343a40;
+/* Responsive styles */
+@media (max-width: 1200px) {
+  :root {
+    --right-sidebar-width: 320px;
+  }
 }
 
-.map {
-  flex-grow: 1;
-  height: 100vh;
+@media (max-width: 1024px) {
+  :root {
+    --right-sidebar-width: 300px;
+  }
+}
+
+@media (max-width: 768px) {
+  .app-container {
+    flex-direction: column;
+  }
+  
+  .mobile-menu-bar {
+    display: flex;
+  }
+  
+  .control-panel, .right-sidebar, .main-content {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: var(--mobile-menu-height);
+    width: 100vw;
+    height: calc(100vh - var(--mobile-menu-height));
+    z-index: 1000;
+    transform: none;
+    transition: transform 0.3s ease, opacity 0.3s ease;
+    opacity: 0;
+    pointer-events: none;
+    margin: 0;
+    padding: 0;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+  
+  /* Show appropriate panel based on selection */
+  [data-mobile-panel="controls"] .control-panel {
+    opacity: 1;
+    pointer-events: auto;
+    transform: translateX(0);
+  }
+  
+  [data-mobile-panel="map"] .main-content {
+    opacity: 1;
+    pointer-events: auto;
+    transform: translateX(0);
+  }
+  
+  [data-mobile-panel="styles"] .right-sidebar {
+    opacity: 1;
+    pointer-events: auto;
+    transform: translateX(0);
+  }
+  
+  /* Hide other panels with transitions */
+  [data-mobile-panel="controls"] .main-content,
+  [data-mobile-panel="controls"] .right-sidebar {
+    transform: translateX(100%);
+  }
+  
+  [data-mobile-panel="map"] .control-panel {
+    transform: translateX(-100%);
+  }
+  
+  [data-mobile-panel="map"] .right-sidebar {
+    transform: translateX(100%);
+  }
+  
+  [data-mobile-panel="styles"] .control-panel,
+  [data-mobile-panel="styles"] .main-content {
+    transform: translateX(-100%);
+  }
+  
+  .sidebar-toggle {
+    display: none;
+  }
+  
+  /* Right sidebar full width on mobile */
+  .right-sidebar {
+    width: 100%;
+  }
+}
+
+/* Transitions */
+.fade-enter-active,
+.fade-leave-active {
+  transition: opacity 0.3s ease;
+}
+
+.fade-enter-from,
+.fade-leave-to {
+  opacity: 0;
 }
 </style>
