@@ -1,15 +1,5 @@
 <template>
   <div class="control-panel">
-    <!-- Minimalist Header -->
-    <div class="header">
-      <div class="header-content">
-        <div class="title-container">
-          <span class="title-icon">📍</span>
-          <h1>pmtiles</h1>
-        </div>
-      </div>
-    </div>
-    
     <!-- Source URL Section -->
     <section class="panel-section">
       <div class="section-title">
@@ -110,14 +100,9 @@
     <!-- Footer -->
     <div class="footer">
       <div class="footer-content">
-        <a href="https://github.com/protomaps/PMTiles" target="_blank" class="footer-link">
-          <span class="github-icon">🌐</span>
-          About PMTiles
-        </a>
-        <span class="footer-divider"></span>
-        <a href="https://github.com/protomaps/PMTiles" target="_blank" class="footer-link">
-          <span class="github-icon">💻</span>
-          Documentation
+        <a href="https://github.com/ronitjadhav/pmtiles-demo" target="_blank" class="footer-link">
+          <span class="github-icon">⌥</span>
+          View on GitHub
         </a>
       </div>
     </div>
@@ -294,39 +279,6 @@ export default {
   font-weight: 600;
   color: #2c3e50;
   margin: 0;
-}
-
-/* Enhanced Header */
-.header {
-  margin-bottom: 24px;
-  padding-bottom: 14px;
-  border-bottom: 1px solid #edf2f7;
-}
-
-.header-content {
-  display: flex;
-  align-items: center;
-}
-
-.title-container {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-}
-
-.title-icon {
-  font-size: 24px;
-  opacity: 0.9;
-}
-
-h1 {
-  font-size: 28px;
-  font-weight: 700;
-  color: #1a202c;
-  margin: 0;
-  text-transform: lowercase;
-  letter-spacing: -0.5px;
-  font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
 }
 
 .badge {
@@ -717,36 +669,14 @@ input[type="text"]:focus {
 /* Enhanced Footer */
 .footer {
   margin-top: auto;
-  padding-top: 24px;
-  padding-bottom: 10px;
-  font-size: 14px;
-  text-align: center;
+  padding: 20px 0;
   position: relative;
-}
-
-.footer::before {
-  content: '';
-  position: absolute;
-  top: 0;
-  left: 50%;
-  transform: translateX(-50%);
-  width: 80px;
-  height: 2px;
-  background: linear-gradient(90deg, transparent, rgba(52, 152, 219, 0.5), transparent);
 }
 
 .footer-content {
   display: flex;
-  align-items: center;
   justify-content: center;
-  gap: 10px;
-}
-
-.footer-divider {
-  width: 3px;
-  height: 3px;
-  background-color: #bdc3c7;
-  border-radius: 50%;
+  align-items: center;
 }
 
 .footer-link {
@@ -783,11 +713,6 @@ input[type="text"]:focus {
     border-right: none;
     background-image: linear-gradient(to bottom, #ffffff, #f7f9ff);
     box-sizing: border-box;
-  }
-  
-  .header {
-    margin-bottom: 24px;
-    padding-bottom: 15px;
   }
   
   .panel-section {
